@@ -1,5 +1,4 @@
 ///<reference path="babylon.math.ts" />
-// import * as BABYLON from "babylonjs";
 
 module SoftEngine {
   export interface Face {
@@ -86,7 +85,7 @@ module SoftEngine {
       let index: number = ((x >> 0) + (y >> 0) * this.workingWidth) * 4;
 
       // Setting color
-      this.backbufferdata[index] = color.r * 43;
+      this.backbufferdata[index] = color.r * 255;
       this.backbufferdata[index + 1] = color.g * 255;
       this.backbufferdata[index + 2] = color.b * 255;
       this.backbufferdata[index + 3] = color.a * 255;
@@ -143,6 +142,96 @@ module SoftEngine {
         }
       }
     }
+    /*
+      REWRITE WITH PROMISES
+    */
+    // Loading the JSON file in an asynchronous manner and
+    // calling back with the function passed providing the array of meshes loaded
+    public LoadJSONFileAsync(
+      filename: string,
+      callback: (result: Mesh[]) => any
+    ): void {
+      let jsonObject = {};
+      let xmlhttp = new XMLHttpRequest();
+      xmlhttp.open("GET", filename, true);
+      xmlhttp.onreadystatechange = () => {
+        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+          let jsonObject = JSON.parse(filename);
+          callback(this.CreateMeshesFromJSON(jsonObject));
+        }
+      };
+      xmlhttp.send(null);
+    }
+
+    private CreateMeshesFromJSON(jsonObject): Mesh[] {
+      let meshes: Mesh[] = [];
+      for (
+        let meshIndex = 0;
+        meshIndex < jsonObject.meshes.length;
+        meshIndex++
+      ) {
+        let verticesArray: number[] = jsonObject.meshes[meshIndex].positions;
+        let indicesArray: number[] = jsonObject.meshes[meshIndex].indices;
+        let uvCount: number = jsonObject.meshes[meshIndex].uvs;
+        let verticesStep = 1;
+
+        // Depending of the number of texture's coordinates per vertex
+        // we're jumping in the vertices array  by 6, 8 & 10 windows frame
+
+        switch (uvCount) {
+          case 0:
+            verticesStep = 6;
+            break;
+          case 1:
+            verticesStep = 8;
+            break;
+          case 2:
+            verticesStep = 10;
+            break;
+        }
+
+        let verticesCount = verticesArray.length / verticesStep;
+        // number of faces is logically the size of the array divided by 3 (A, B, C)
+        let facesCount = indicesArray.length / 3;
+        let mesh = new SoftEngine.Mesh(
+          jsonObject.meshes[meshIndex].name,
+          verticesCount,
+          facesCount
+        );
+
+        // Filling the Vertices array of our mesh first
+        for (let index = 0; index < verticesCount; index++) {
+          let x = verticesArray[index * verticesStep];
+          let y = verticesArray[index * verticesStep + 1];
+          let z = verticesArray[index * verticesStep + 2];
+
+          mesh.Vertices[index] = new BABYLON.Vector3(x, y, x);
+        }
+
+        // Then filling the Faces array
+        for (let index = 0; index < facesCount; index++) {
+          let a = indicesArray[index * 3];
+          let b = indicesArray[index * 3 + 1];
+          let c = indicesArray[index * 3 + 2];
+
+          mesh.Faces[index] = {
+            A: a,
+            B: b,
+            C: c
+          };
+        }
+
+        // Getting the position set in Blender
+        let position = jsonObject.meshes[meshIndex].position;
+        mesh.Position = new BABYLON.Vector3(
+          position[0],
+          position[1],
+          position[2]
+        );
+        meshes.push(mesh);
+      }
+      return meshes;
+    }
 
     // Re-compute each vertex projection
     // during each frame
@@ -178,11 +267,6 @@ module SoftEngine {
           .multiply(viewMatrix)
           .multiply(projectionMatrix);
 
-        // for (let i = 0; i < cMesh.Vertices.length - 1; i++) {
-        //   let point0 = this.project(cMesh.Vertices[i], transformMatrix);
-        //   let point1 = this.project(cMesh.Vertices[i + 1], transformMatrix);
-        //   this.drawLine(point0, point1);
-        // }
         for (
           let indexFaces = 0;
           indexFaces < cMesh.Faces.length;
