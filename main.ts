@@ -15,7 +15,10 @@ function init() {
   mera.Position = new BABYLON.Vector3(0, 0, 10);
   mera.Target = new BABYLON.Vector3(0, 0, 0);
 
-  device.LoadJSONFileAsync("monkey.babylon", loadJSONCompleted);
+  device.LoadJSONFileAsync(
+    "http://localhost/public_html/ts3dEngine/monkey.babylon",
+    loadJSONCompleted
+  );
 }
 function loadJSONCompleted(meshesLoaded: SoftEngine.Mesh[]) {
   meshes = meshesLoaded;
